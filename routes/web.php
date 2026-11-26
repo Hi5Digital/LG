@@ -1,33 +1,31 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
-|
-*/
-Auth::routes();
+Auth::routes(['register' => false]);
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+Route::get('/account', [AccountController::class, 'edit'])->name('account.edit');
+Route::put('/account', [AccountController::class, 'update'])->name('account.update');
+
 Route::get('/models', [HomeController::class, 'models'])->name('models');
+Route::get('/models/create', [HomeController::class, 'model_create'])->name('models.create');
+Route::post('/models', [HomeController::class, 'model_store'])->name('models.store');
 Route::get('/models/{id}', [HomeController::class, 'model_details'])->name('models.details');
 Route::put('/models/{id}', [HomeController::class, 'model_update'])->name('models.update');
-Route::post('/models/{id}/photo', [HomeController::class, 'model_photo_update'])->name('models.photo.update');
-Route::get('/models/{mid}/photo/{pid}/delete', [HomeController::class, 'delete_photo'])->name('models.photo.delete');
+Route::post('/models/{id}/payment', [HomeController::class, 'payment_store'])->name('models.payment.store');
+Route::post('/models/{id}/photo', [HomeController::class, 'model_photo_update'])->name('models.photo.update')->middleware('throttle:20,1');
+Route::get('/models/{id}/photo/{pid}', [HomeController::class, 'show_photo'])->name('models.photo.show');
+Route::post('/models/{mid}/photo/{pid}/delete', [HomeController::class, 'delete_photo'])->name('models.photo.delete');
 
 Route::get('/body', [HomeController::class, 'body_types'])->name('body');
 Route::post('/body', [HomeController::class, 'body_type_store'])->name('body.store');
 Route::put('/body/{id}', [HomeController::class, 'body_type_update'])->name('body.update');
-Route::Delete('/body/{id}', [HomeController::class, 'body_type_delete'])->name('body.delete');
+Route::delete('/body/{id}', [HomeController::class, 'body_type_delete'])->name('body.delete');
 
 Route::get('/bust', [HomeController::class, 'bust_sizes'])->name('bust');
 Route::post('/bust', [HomeController::class, 'bust_size_store'])->name('bust.store');
@@ -50,4 +48,3 @@ Route::put('/towns/{id}', [HomeController::class, 'town_update'])->name('towns.u
 Route::delete('/towns/{id}', [HomeController::class, 'town_delete'])->name('towns.delete');
 
 Route::get('/others', [HomeController::class, 'others'])->name('others');
-

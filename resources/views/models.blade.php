@@ -5,29 +5,35 @@
         <div>
             <h4 class="mb-3 mb-md-0">Models</h4>
         </div>
+        <a href="{{ route('models.create') }}" class="btn btn-primary">New model</a>
+        <button type="button" class="btn btn-secondary btn-sm" id="clearFilters">Clear column search</button>
     </div>
 
     <div class="col-md-12">
         <div class="stretch-card">
             <div class="card">
                 <div class="card-header">
-                    <form action="">
-                        <div class="d-flex justify-content-end align-content-end">
-                            <div class="form-check form-check-inline">
-                                <label class="form-check-label">
-                                    <input type="checkbox" name="status" {{ request()->has('status') ? 'checked' : '' }} value="paid" class="form-check-input">
-                                    Paid
-                                </label>
-                            </div>
-                            <select class="form-select w-15" name="area">
-                                <option value="">Select Area</option>
+                    <form action="{{ route('models') }}" method="get">
+                        <div class="d-flex justify-content-end align-items-center">
+                            <select class="form-control w-auto mr-2" name="status">
+                                <option value="">All models</option>
+                                <option value="paid" {{ request('status') === 'paid' ? 'selected' : '' }}>Active</option>
+                                <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                            </select>
+                            <select class="form-control w-auto mr-2" name="verified">
+                                <option value="">All</option>
+                                <option value="1" {{ request('verified') === '1' ? 'selected' : '' }}>Verified</option>
+                            </select>
+                            <select class="form-control w-auto mr-2" name="area">
+                                <option value="">All provinces</option>
                                 @foreach($provinces as $province)
-                                    <option value="{{ $province->id }}" {{ request('area') == $province->id ? 'selected' : '' }}>{{ ucwords($province->name) }}</option>
+                                    <option value="{{ $province->id }}" {{ (string) request('area') === (string) $province->id ? 'selected' : '' }}>{{ ucwords($province->name) }}</option>
                                 @endforeach
                             </select>
-                            <div class="ml-2">
-                                <button class="btn btn-primary">Filter</button>
-                            </div>
+                            <button class="btn btn-primary">Filter</button>
+                            @if(request('status') || request('verified') || request('area'))
+                                <a href="{{ route('models') }}" class="btn btn-link">Clear</a>
+                            @endif
                         </div>
                     </form>
                 </div>
@@ -49,20 +55,41 @@
                             <tbody>
                             @php use App\Http\Controllers\HomeController as MD; @endphp
                             @foreach($models as $model)
+                                @php
+                                    $pay = MD::getPayment($model->id, $payments);
+                                    $active = $pay && $pay->validdate && \Carbon\Carbon::parse($pay->validdate)->gte(now());
+                                    $main = MD::getMainPhoto($model->id, $main_photos);
+                                @endphp
                                 <tr class="model-rows" data-url="{{ route('models.details', $model->id) }}">
-                                    <td><img src="{{ 'https://lushgirls.co.za/img/models/'.$model->id.'/'.(MD::getMainPhoto($model->id, $main_photos)->photo ?? '') }}" alt="{{ MD::getDetails($model->id, $details)->screenname ?? '' }}"></td>
-{{--                                    <td><img src="{{ 'http://localhost/20210809/img/models/'.$model->id.'/'.(MD::getMainPhoto($model->id, $main_photos)->photo ?? '') }}" alt="trisha"></td>--}}
-{{--                                    <td><img src="{{ 'http://localhost/20210809/'.(MD::getMainPhoto($model->id, $main_photos)->path ?? '') }}" alt=""></td>--}}
+                                    <td><img src="{{ $main ? route('models.photo.show', ['id' => $model->id, 'pid' => $main->id]) : asset('assets/images/avatar.png') }}" alt="{{ optional(MD::getDetails($model->id, $details))->screenname ?? '' }}" width="40"></td>
                                     <td>{{ $model->id }}</td>
-                                    <td>{{ $model->name.' '.$model->surname }}</td>
+                                    <td><a href="{{ route('models.details', $model->id) }}">{{ $model->name.' '.$model->surname }}</a></td>
                                     <td>{{ $model->email }}</td>
-                                    <td>{{ $details ? (MD::getDetails($model->id, $details)->screenname ?? '--------') : '--------' }}</td>
-                                    <td>{{ ($models_location && $locations) ? (MD::getLocation($model->id, $locations, $models_location)->name ?? '--------') : '---------' }}</td>
-                                    <td><span class="badge {{ MD::getPayment($model->id, $payments) ? 'badge-success' : 'badge-danger-muted' }}">{{ MD::getPayment($model->id, $payments) ? 'active' : 'not active' }}</span></td>
-                                    <td>{{ MD::getPayment($model->id, $payments) ? date('Y/m/d', strtotime(MD::getPayment($model->id, $payments)->paymentdate)) : '--------' }}</td>
+                                    <td>{{ optional(MD::getDetails($model->id, $details))->screenname ?? '--------' }}</td>
+                                    <td>{{ optional(MD::getLocation($model->id, $locations, $models_location))->name ?? '--------' }}</td>
+                                    <td><span class="badge {{ $active ? 'badge-success' : 'badge-danger-muted' }}">{{ $active ? 'Active' : 'Inactive' }}</span></td>
+                                    <td>{{ $pay && $pay->paymentdate ? \Carbon\Carbon::parse($pay->paymentdate)->format('d M Y') : '--------' }}</td>
                                 </tr>
                             @endforeach
                             </tbody>
+                            <tfoot>
+                            <tr>
+                                <th></th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="Search ID"></th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="Search Name"></th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="Search Email"></th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="Search Screen Name"></th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="Search Location"></th>
+                                <th>
+                                    <select class="form-control form-control-sm">
+                                        <option value="">All</option>
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
+                                </th>
+                                <th><input type="text" class="form-control form-control-sm" placeholder="Search Date"></th>
+                            </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
@@ -74,29 +101,58 @@
 @section('script')
     <script>
         $(function () {
-            $('.model-rows').css( 'cursor', 'pointer' ).click(function () {
-                window.location.href = $(this).data('url');
-            });
-
-            $('#dataTableModels').DataTable({
+            var table = $('#dataTableModels').DataTable({
                 "aLengthMenu": [
-                    [100, 250, 500, -1],
-                    [100, 250, 500, "All"]
+                    [50, 100, 250, 500, -1],
+                    [50, 100, 250, 500, "All"]
                 ],
                 "iDisplayLength": 100,
+                "order": [[1, 'desc']],
+                "columnDefs": [
+                    { "orderable": false, "targets": 0 }
+                ],
                 "language": {
                     search: ""
+                },
+                initComplete: function () {
+                    this.api().columns().every(function (index) {
+                        if (index === 0) {
+                            return;
+                        }
+                        var column = this;
+                        var input = $('#dataTableModels tfoot th').eq(index).find('input, select');
+                        input.on('keyup change clear', function () {
+                            if (column.search() !== this.value) {
+                                column.search(this.value).draw();
+                            }
+                        });
+                    });
                 }
-            }).each(function() {
-                var datatable = $(this);
-                // SEARCH - Add the placeholder for Search and Turn this into in-line form control
-                var search_input = datatable.closest('.dataTables_wrapper').find('div[id$=_filter] input');
-                search_input.attr('placeholder', 'Search');
-                search_input.removeClass('form-control-sm');
-                // LENGTH - Inline-Form control
-                var length_sel = datatable.closest('.dataTables_wrapper').find('div[id$=_length] select');
-                length_sel.removeClass('form-control-sm');
             });
+
+            $('#dataTableModels tbody').on('click', 'tr', function (event) {
+                if ($(event.target).closest('a, button, input, select').length) {
+                    return;
+                }
+                var url = $(this).data('url');
+                if (url) {
+                    window.location.href = url;
+                }
+            });
+
+            $('#clearFilters').on('click', function () {
+                table.search('');
+                table.columns().every(function () {
+                    this.search('');
+                });
+                $('#dataTableModels tfoot input').val('');
+                $('#dataTableModels tfoot select').val('');
+                table.draw();
+            });
+
+            var search_input = $('#dataTableModels').closest('.dataTables_wrapper').find('div[id$=_filter] input');
+            search_input.attr('placeholder', 'Search all columns...');
+            search_input.removeClass('form-control-sm');
         })
     </script>
 @endsection

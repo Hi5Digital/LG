@@ -13,6 +13,9 @@
                             {{ session('status') }}
                         </div>
                     @endif
+                    @if (config('mail.default') === 'log')
+                        <p class="text-muted">On this machine the reset link is written to the application log. It is not sent to an inbox.</p>
+                    @endif
 
                     <form method="POST" action="{{ route('password.email') }}">
                         @csrf

@@ -132,6 +132,12 @@
                                             </label>
                                         </div>
                                         <div class="mt-3">
+                                            @if (Route::has('password.request'))
+                                                <a href="{{ route('password.request') }}">Forgot your password?</a>
+                                                @if (config('mail.default') === 'log')
+                                                    <p class="text-muted small">On this machine the reset link is written to the application log. It is not sent to an inbox.</p>
+                                                @endif
+                                            @endif
                                             <button type="submit" class="btn btn-primary mr-2 mb-2 mb-md-0 text-white">Login</button>
                                         </div>
                                     </form>

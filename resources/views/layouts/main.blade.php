@@ -35,7 +35,7 @@
                         <span class="link-title">Dashboard</span>
                     </a>
                 </li>
-                <li class="nav-item {{ Route::currentRouteNamed(['models', 'models.details']) ? 'active' : '' }}">
+                <li class="nav-item {{ Route::currentRouteNamed(['models', 'models.details', 'models.create']) ? 'active' : '' }}">
                     <a href="{{ route('models') }}" class="nav-link">
                         <i class="link-icon" data-feather="users"></i>
                         <span class="link-title">Models</span>
@@ -70,7 +70,7 @@
                 <li class="nav-item {{ Route::currentRouteNamed(['others']) ? 'active' : '' }}">
                     <a href="{{ route('others') }}" class="nav-link">
                         <i class="link-icon" data-feather="users"></i>
-                        <span class="link-title">Others</span>
+                        <span class="link-title">Incomplete sign-ups</span>
                     </a>
                 </li>
             </ul>
@@ -100,6 +100,11 @@
                             </div>
                             <div class="dropdown-body">
                                 <ul class="profile-nav p-0 pt-3">
+                                    <li class="nav-item">
+                                        <a href="{{ route('account.edit') }}" class="nav-link">
+                                            <span>Account</span>
+                                        </a>
+                                    </li>
                                     <li class="nav-item">
                                         <a href="javascript:void(0);" onclick="$('#logout-form').submit()" class="nav-link">
                                             <i data-feather="log-out"></i>
@@ -139,7 +144,7 @@
 
         <!-- partial:partials/_footer.html -->
         <footer class="footer d-flex flex-column flex-md-row align-items-center justify-content-between">
-            <p class="text-muted text-center text-md-left">Copyright Â© {{ date('Y') }} <a href="https://lushgirls.co.za" target="_blank">LushGirls.co.za</a>. All rights reserved</p>
+            <p class="text-muted text-center text-md-left">Copyright © {{ date('Y') }} <a href="https://lushgirls.co.za" target="_blank">LushGirls.co.za</a>. All rights reserved</p>
         </footer>
         <!-- partial -->
 

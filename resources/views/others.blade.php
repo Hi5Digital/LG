@@ -3,7 +3,8 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center flex-wrap grid-margin">
     <div>
-        <h4 class="mb-3 mb-md-0">Others</h4>
+        <h4 class="mb-3 mb-md-0">Incomplete sign-ups</h4>
+        <p class="text-muted mb-0">These profiles have no name yet. Open one to finish it.</p>
     </div>
 </div>
 
@@ -16,7 +17,7 @@
                         <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Email</th>
+                            <th>Username</th>
                             <th>Date Joined</th>
                         </tr>
                         </thead>
@@ -24,7 +25,7 @@
                         @php use App\Http\Controllers\HomeController as MD; @endphp
                         @foreach($models as $model)
                             <tr class="model-rows">
-                                <td>{{ $model->id }}</td>
+                                <td><a href="{{ route('models.details', $model->id) }}">{{ $model->id }}</a></td>
                                 <td>{{ MD::getLogin($model->id) ? MD::getLogin($model->id)->username : '--------' }}</td>
                                 <td>{{ Carbon\Carbon::make($model->createdate)->format('Y-m-d') }}</td>
                             </tr>

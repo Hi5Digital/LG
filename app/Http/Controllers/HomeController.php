@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use Exception;
-use Illuminate\Http\Client\Response;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class HomeController extends Controller
 {
@@ -19,160 +20,267 @@ class HomeController extends Controller
 
     public function index()
     {
-        $models = DB::table('model')->where('name', '!=', null)->orderByDesc('createdate')->get()->toArray();
+        $models = DB::table('model')->whereNotNull('name')->where('name', '!=', '')->orderByDesc('createdate')->get()->toArray();
         $details = DB::table('mdetails')->get();
-        $payments = DB::table('payments')->orderByDesc('paymentdate')->limit(10)->get();
+        $payments = DB::table('payments')
+            ->leftJoin('model', 'model.id', '=', 'payments.mid')
+            ->orderByDesc('payments.paymentdate')
+            ->limit(10)
+            ->get(['payments.*', 'model.name as model_name', 'model.surname as model_surname']);
         $active_payments = DB::table('payments')->where('validdate', '>=', now())->get();
         $photos = DB::table('mphoto')->where('main', 'y')->get();
         $active_models = $inactive_models = $verified_models = 0;
         foreach ($models as $model) {
             $model->details = self::getDetails($model->id, $details);
-            $model->main_photo = self::getMainPhoto($model->id, $photos)->photo ?? null;
-            if ($model->details && $model->details->verified)
+            $main = self::getMainPhoto($model->id, $photos);
+            $model->main_photo_url = $main ? route('models.photo.show', ['id' => $model->id, 'pid' => $main->id]) : null;
+            if ($model->details && $model->details->verified) {
                 $verified_models++;
-            if (self::getPayment($model->id, $active_payments))
-                $active_models ++;
-            else
+            }
+            if (self::getPayment($model->id, $active_payments)) {
+                $active_models++;
+            } else {
                 $inactive_models++;
+            }
         }
         return view('home', compact('models', 'details', 'active_models', 'inactive_models', 'verified_models', 'payments'));
     }
 
     public function models()
     {
-        $models = DB::table('model')->where('name', '!=', null);
-        $paid = request()->has('status');
+        $status = request('status');
         $area = request('area');
-        if ($area)
-            $models = $models->join('mlocation', 'model.id', '=', 'mlocation.mid')->where('pid', $area);
-        if ($paid)
-            $models = $models->join('payments', 'model.id', '=', 'payments.mid')->where('validdate', '>=', now()->format('Y-m-d H:i:s'));
+        $query = DB::table('model')->whereNotNull('name')->where('name', '!=', '');
+        if ($area) {
+            $query->whereExists(function ($q) use ($area) {
+                $q->select(DB::raw(1))->from('mlocation')->whereColumn('mlocation.mid', 'model.id')->where('pid', $area);
+            });
+        }
+        if ($status === 'paid') {
+            $query->whereExists(function ($q) {
+                $q->select(DB::raw(1))->from('payments')->whereColumn('payments.mid', 'model.id')->where('validdate', '>=', now());
+            });
+        } elseif ($status === 'inactive') {
+            $query->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))->from('payments')->whereColumn('payments.mid', 'model.id')->where('validdate', '>=', now());
+            });
+        }
+        if (request('verified') === '1') {
+            $query->whereExists(function ($q) {
+                $q->select(DB::raw(1))->from('mdetails')->whereColumn('mdetails.mid', 'model.id')->where('verified', 1);
+            });
+        }
+        $models = $query->orderByDesc('createdate')->get();
         $details = DB::table('mdetails')->get();
         $locations = DB::table('mlocation')->get();
         $models_location = DB::table('ltown')->get();
         $main_photos = DB::table('mphoto')->where('main', 'y')->get();
-        $payments = DB::table('payments')->where('validdate', '>=', now())->get();
+        $payments = DB::table('payments')->orderByDesc('paymentdate')->orderByDesc('id')->get();
         $provinces = DB::table('lprovince')->orderBy('name')->get();
-        $models = $models->select('model.*')->orderByDesc('createdate')->get();
-
-        return view('models', compact(['models', 'details', 'locations', 'models_location', 'main_photos', 'payments', 'provinces']));
+        return view('models', compact('models', 'details', 'locations', 'models_location', 'main_photos', 'payments', 'provinces'));
     }
 
     public function others()
     {
         $models = DB::table('model')
-            ->where('name', '')
-            ->orWhere('name', null)
+            ->where(function ($query) {
+                $query->where('name', '')->orWhereNull('name');
+            })
             ->orderByDesc('createdate')
             ->get();
         return view('others', compact('models'));
     }
 
+    public function model_create()
+    {
+        return view('models.create', array_merge($this->profileLookups(), [
+            'model' => null,
+            'model_details' => null,
+            'model_location' => null,
+            'model_login' => null,
+        ]));
+    }
+
+    public function model_store(Request $request)
+    {
+        $validator = Validator::make($request->all(), $this->profileRules());
+        if ($validator->fails()) {
+            return back()->withInput()->withErrors($validator)->with('error', 'Check the highlighted fields.');
+        }
+        $locationError = $this->locationError($request);
+        if ($locationError) {
+            return back()->withInput()->withErrors(['town' => $locationError])->with('error', 'Check the highlighted fields.');
+        }
+        $id = DB::transaction(function () use ($request) {
+            $id = DB::table('model')->insertGetId([
+                'name' => $request->input('name'),
+                'surname' => $request->input('surname'),
+                'email' => $request->input('email'),
+                'mobile' => $request->input('mobile'),
+                'createdate' => now(),
+                'modifydate' => now(),
+            ]);
+            $this->persistProfile($request, $id);
+            return $id;
+        });
+        return redirect()->route('models.details', $id)->with('success', 'Model created');
+    }
+
     public function model_details($id)
     {
         $model = DB::table('model')->find($id);
+        if (! $model) {
+            abort(404);
+        }
         $model_details = DB::table('mdetails')->where('mid', $id)->first();
         $model_location = DB::table('mlocation')->where('mid', $id)->first();
-        $model_main_photo = DB::table('mphoto')->where('mid', $id)->where('main', 'y')->first();
-        $model_photos = DB::table('mphoto')->where('mid', $id)->get();
-        $model_payment = DB::table('payments')->where('mid', $id)->first();
-        $bodies = DB::table('mbodytype')->orderBy('name')->get();
-        $busts = DB::table('mbust')->orderBy('name')->get();
-        $orientations = DB::table('morientation')->orderBy('name')->get();
-        $ethnics = DB::table('methnic')->orderBy('name')->get();
-        $countries = DB::table('lcountry')->orderBy('name')->get();
-        $provinces = DB::table('lprovince')->orderBy('name')->get();
-        $towns = DB::table('ltown')->orderBy('name')->get();
-
-        return view('model-details', compact(['model', 'model_details', 'model_location', 'model_main_photo', 'model_photos', 'model_payment', 'bodies', 'busts', 'orientations', 'ethnics', 'countries', 'provinces', 'towns']));
+        $model_login = DB::table('login')->where('uid', $id)->first();
+        $model_photos = DB::table('mphoto')->where('mid', $id)->orderByDesc('id')->get();
+        $model_payment = DB::table('payments')->where('mid', $id)->orderByDesc('paymentdate')->orderByDesc('id')->first();
+        return view('model-details', array_merge(
+            compact('model', 'model_details', 'model_location', 'model_login', 'model_photos', 'model_payment'),
+            $this->profileLookups()
+        ));
     }
 
-    public static function model_update(Request $request, $id): RedirectResponse
+    public function model_update(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required',
-            'surname' => 'required',
-            'profile' => 'required',
-            'age' => 'required',
-            'screenname' => 'required',
-            'btype' => 'required',
-            'mobile' => 'required',
-            'orientation' => 'required',
-            'ethnic' => 'required',
-            'country' => 'required',
-            'province' => 'required',
-            'town' => 'required',
-        ]);
-        if ($validator->fails()) return back()->withInput()->withErrors($validator)->with('error', 'Validation Error');
-
-        try {
-            DB::table('model')->where('id', $id)->update([
-                'name' => $request['name'],
-                'surname' => $request['surname'],
-                'mobile' => $request['mobile'],
-                'modifydate' => now()
-            ]);
-
-            DB::table('mdetails')->where('mid', $id)->update([
-                'profile' => $request['profile'],
-                'screenname' => $request['screenname'],
-                'age' => $request['age'],
-                'bust' => $request['bust'],
-                'btype' => $request['btype'],
-                'orientation' => $request['orientation'],
-                'ethnic' => $request['ethnic'],
-                'weight' => $request['weight'],
-                'height' => $request['height'],
-                'smoke' => $request->has('smoke') ? 'y' : 'n',
-                'travel' => $request->has('travel') ? 'y' : 'n',
-                'drink' => $request->has('drink') ? 'y' : 'n',
-                'verified' => $request->has('verified') ? 1 : 0,
-                'top' => $request->has('top') ? 1 : 0,
-                'imageverified' => $request->has('imageverified') ? 1 : 0
-            ]);
-
-            DB::table('mlocation')->where('mid', $id)->update([
-                'lid' => $request['town'],
-                'pid' => $request['province'],
-                'cid' => $request['country']
-            ]);
-        } catch (Exception $e) {
-            return back()->with('error', $e->getMessage());
+        if (! DB::table('model')->where('id', $id)->exists()) {
+            abort(404);
         }
-
+        $validator = Validator::make($request->all(), $this->profileRules());
+        if ($validator->fails()) {
+            return back()->withInput()->withErrors($validator)->with('error', 'Check the highlighted fields.');
+        }
+        $locationError = $this->locationError($request);
+        if ($locationError) {
+            return back()->withInput()->withErrors(['town' => $locationError])->with('error', 'Check the highlighted fields.');
+        }
+        try {
+            DB::transaction(function () use ($request, $id) {
+                DB::table('model')->where('id', $id)->update([
+                    'name' => $request->input('name'),
+                    'surname' => $request->input('surname'),
+                    'email' => $request->input('email'),
+                    'mobile' => $request->input('mobile'),
+                    'modifydate' => now(),
+                ]);
+                $this->persistProfile($request, $id);
+            });
+        } catch (\Throwable $e) {
+            Log::error($e);
+            return back()->withInput()->with('error', 'Details could not be saved.');
+        }
         return back()->with('success', 'Details Updated');
     }
 
-    public static function model_photo_update(Request $request, $id): RedirectResponse
+    public function payment_store(Request $request, $id)
     {
+        if (! DB::table('model')->where('id', $id)->exists()) {
+            abort(404);
+        }
         $validator = Validator::make($request->all(), [
-            'photo' => 'required|image|max:1024'
+            'paymentdate' => 'required|date',
+            'validdate' => 'required|date|after_or_equal:paymentdate',
+            'transactionid' => 'nullable|string|max:255',
+            'subscriptionid' => 'nullable|string|max:255',
         ]);
-        if ($validator->fails()) return back()->withInput()->withErrors($validator)->with('error', 'Validation Error');
-
-        $file = $request->file('photo');
-        $model_main_photo = DB::table('mphoto')->where('mid', $id)->where('main', 'y')->first();
-        if (! $model_main_photo) {
-            $name = 'main_photo';
-        } else {
-            $name = $request->has('main') ? 'main_photo' : 'photo_new';
+        if ($validator->fails()) {
+            return back()->withInput()->withErrors($validator)->with('error', 'Check the highlighted fields.');
         }
+        DB::table('payments')->insert([
+            'mid' => $id,
+            'paymentdate' => $request->input('paymentdate'),
+            'validdate' => $request->input('validdate'),
+            'transactionid' => $request->input('transactionid'),
+            'subscriptionid' => $request->input('subscriptionid'),
+        ]);
+        return back()->with('success', 'Payment recorded');
+    }
 
+    public function model_photo_update(Request $request, $id)
+    {
+        if (! DB::table('model')->where('id', $id)->exists()) {
+            abort(404);
+        }
+        $validator = Validator::make($request->all(), [
+            'photo' => 'required|file|mimes:jpg,jpeg,png,webp|max:2048',
+        ]);
+        if ($validator->fails()) {
+            return $this->photoFailure($request, $validator->errors()->first());
+        }
+        $uploaded = $request->file('photo');
+        $info = @getimagesize($uploaded->getRealPath());
+        if (! $info || $info[0] < 1 || $info[1] < 1 || ($info[0] * $info[1]) > 24000000) {
+            return $this->photoFailure($request, 'Photo is too large to process.');
+        }
+        $src = $this->imageFromUpload($uploaded->getRealPath(), (int) $info[2]);
+        if (! $src) {
+            return $this->photoFailure($request, 'Photo could not be read.');
+        }
+        $name = (string) Str::uuid().'.webp';
+        $dir = storage_path('app/models/'.$id);
+        if (! is_dir($dir) && ! mkdir($dir, 0755, true) && ! is_dir($dir)) {
+            imagedestroy($src);
+            return $this->photoFailure($request, 'Photo could not be stored.');
+        }
+        $dest = $dir.DIRECTORY_SEPARATOR.$name;
+        $written = imagewebp($src, $dest, 80);
+        imagedestroy($src);
+        if (! $written) {
+            return $this->photoFailure($request, 'Photo could not be stored.');
+        }
         try {
-            Http::attach($name, file_get_contents($file), $file->getClientOriginalName())
-                ->post('https://lushgirls.co.za/image-upload.php?mid=' . $id);
-//                ->post('http://localhost:3000/image-upload.php?mid=' . $id);
-        } catch (Exception $e) {
-            return back()->with('error', $e->getMessage());
+            DB::transaction(function () use ($request, $id, $name) {
+                DB::table('model')->where('id', $id)->lockForUpdate()->first();
+                $photoId = DB::table('mphoto')->insertGetId(['mid' => $id, 'photo' => $name, 'main' => null]);
+                $hasOtherMain = DB::table('mphoto')->where('mid', $id)->where('id', '!=', $photoId)->where('main', 'y')->exists();
+                if ($request->boolean('main') || ! $hasOtherMain) {
+                    DB::table('mphoto')->where('mid', $id)->where('id', '!=', $photoId)->update(['main' => null]);
+                    DB::table('mphoto')->where('id', $photoId)->update(['main' => 'y']);
+                }
+            });
+        } catch (\Throwable $e) {
+            @unlink($dest);
+            Log::error($e);
+            return $this->photoFailure($request, 'Photo could not be stored.');
         }
-
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
         return back()->with('success', 'Photo Updated');
     }
 
-    public function delete_photo($mid, $pid): Response
+    public function show_photo($id, $pid)
     {
-        return Http::get('https://lushgirls.co.za/delete-photo.php?delete=1&mid='.$mid.'&id='.$pid);
-//        return Http::get('http://localhost:3000/delete-photo.php?delete=1&mid='.$mid.'&id='.$pid);
+        $photo = DB::table('mphoto')->where('id', $pid)->where('mid', $id)->first();
+        if (! $photo || ! $photo->photo || strpos($photo->photo, '/') !== false || strpos($photo->photo, '\\') !== false) {
+            abort(404);
+        }
+        $path = storage_path('app/models/'.$id.DIRECTORY_SEPARATOR.basename($photo->photo));
+        if (! is_file($path)) {
+            abort(404);
+        }
+        return response()->file($path, [
+            'Content-Type' => 'image/webp',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function delete_photo(Request $request, $mid, $pid)
+    {
+        $photo = DB::table('mphoto')->where('id', $pid)->where('mid', $mid)->first();
+        if (! $photo) {
+            abort(404);
+        }
+        DB::table('mphoto')->where('id', $pid)->where('mid', $mid)->delete();
+        if ($photo->photo && strpos($photo->photo, '/') === false && strpos($photo->photo, '\\') === false) {
+            @unlink(storage_path('app/models/'.$mid.DIRECTORY_SEPARATOR.basename($photo->photo)));
+        }
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+        return back()->with('success', 'Photo deleted');
     }
 
     public function body_types()
@@ -209,7 +317,7 @@ class HomeController extends Controller
     {
         if ($body = DB::table('mbodytype')->find($id)) {
             if (DB::table('mdetails')->where('btype', $body->id)->count() > 0)
-                return back()->with('error', 'Body Type cannot be deleted');
+                return back()->with('error', 'Body Type cannot be deleted because profiles still use it');
             if (DB::table('mbodytype')->where('id', $id)->delete())
                 return back()->with('success', 'Body Type Deleted');
         }
@@ -250,7 +358,7 @@ class HomeController extends Controller
     {
         if ($bust = DB::table('mbust')->find($id)) {
             if (DB::table('mdetails')->where('bust', $bust->name)->count() > 0)
-                return back()->with('error', 'Bust Size cannot be deleted');
+                return back()->with('error', 'Bust Size cannot be deleted because profiles still use it');
             if (DB::table('mbust')->where('id', $id)->delete())
                 return back()->with('success', 'Bust Size Deleted');
         }
@@ -291,7 +399,7 @@ class HomeController extends Controller
     {
         if ($ethnic = DB::table('methnic')->find($id)) {
             if (DB::table('mdetails')->where('ethnic', $ethnic->id)->count() > 0)
-                return back()->with('error', 'Cannot delete Ethnic');
+                return back()->with('error', 'Cannot delete Ethnic because profiles still use it');
             if (DB::table('methnic')->where('id', $id)->delete())
                 return back()->with('success', 'Ethnic Deleted Successfully');
         }
@@ -332,7 +440,7 @@ class HomeController extends Controller
     {
         if ($orientation = DB::table('morientation')->find($id)) {
             if (DB::table('mdetails')->where('orientation', $orientation->id)->count() > 0)
-                return back()->with('error', 'Cannot delete Orientation');
+                return back()->with('error', 'Cannot delete Orientation because profiles still use it');
             if (DB::table('morientation')->where('id', $id)->delete())
                 return back()->with('success', 'Orientation Deleted Successfully');
         }
@@ -376,11 +484,145 @@ class HomeController extends Controller
     {
         if ($town = DB::table('ltown')->find($id)) {
             if (DB::table('mlocation')->where('lid', $town->id)->count() > 0)
-                return back()->with('error', 'Cannot Delete Town');
+                return back()->with('error', 'Cannot Delete Town because profiles still use it');
             if (DB::table('ltown')->where('id', $id)->delete())
                 return back()->with('success', 'Town Deleted Successfully');
         }
         return back()->with('error', 'Town Not Found');
+    }
+
+    private function profileLookups(): array
+    {
+        return [
+            'bodies' => DB::table('mbodytype')->orderBy('name')->get(),
+            'busts' => DB::table('mbust')->orderBy('name')->get(),
+            'orientations' => DB::table('morientation')->orderBy('name')->get(),
+            'ethnics' => DB::table('methnic')->orderBy('name')->get(),
+            'countries' => DB::table('lcountry')->orderBy('name')->get(),
+            'provinces' => DB::table('lprovince')->orderBy('name')->get(),
+            'towns' => DB::table('ltown')->orderBy('name')->get(),
+        ];
+    }
+
+    private function profileRules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'surname' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'mobile' => 'required|string|max:255',
+            'username' => 'nullable|string|max:255',
+            'password' => 'nullable|string|min:6|confirmed',
+            'profile' => 'required|string|max:65000',
+            'screenname' => 'required|string|max:255',
+            'age' => 'required|integer|min:18|max:99',
+            'weight' => 'nullable|integer|min:1|max:999',
+            'height' => 'nullable|integer|min:1|max:999',
+            'bust' => 'nullable|exists:mbust,name',
+            'btype' => 'required|integer|exists:mbodytype,id',
+            'orientation' => 'required|integer|exists:morientation,id',
+            'ethnic' => 'required|integer|exists:methnic,id',
+            'country' => 'required|integer|exists:lcountry,id',
+            'province' => 'required|integer|exists:lprovince,id',
+            'town' => 'required|integer|exists:ltown,id',
+            'smoke' => 'nullable|in:y',
+            'drink' => 'nullable|in:y',
+            'travel' => 'nullable|in:y',
+            'verified' => 'nullable|in:1',
+            'top' => 'nullable|in:1',
+            'imageverified' => 'nullable|in:1',
+        ];
+    }
+
+    private function locationError(Request $request): ?string
+    {
+        $province = DB::table('lprovince')->where('id', $request->input('province'))->where('cid', $request->input('country'))->first();
+        if (! $province) {
+            return 'Province does not belong to the selected country.';
+        }
+        $town = DB::table('ltown')->where('id', $request->input('town'))->where('pid', $request->input('province'))->where('cid', $request->input('country'))->first();
+        if (! $town) {
+            return 'Town does not belong to the selected province.';
+        }
+        return null;
+    }
+
+    private function persistProfile(Request $request, $id): void
+    {
+        $details = [
+            'profile' => $request->input('profile'),
+            'screenname' => $request->input('screenname'),
+            'age' => $request->input('age'),
+            'bust' => $request->input('bust'),
+            'btype' => $request->input('btype'),
+            'orientation' => $request->input('orientation'),
+            'ethnic' => $request->input('ethnic'),
+            'weight' => $request->input('weight'),
+            'height' => $request->input('height'),
+            'smoke' => $request->input('smoke') === 'y' ? 'y' : 'n',
+            'drink' => $request->input('drink') === 'y' ? 'y' : 'n',
+            'travel' => $request->input('travel') === 'y' ? 'y' : 'n',
+            'verified' => $request->input('verified') === '1' ? 1 : 0,
+            'top' => $request->input('top') === '1' ? 1 : 0,
+            'imageverified' => $request->input('imageverified') === '1' ? 1 : 0,
+        ];
+        if (DB::table('mdetails')->where('mid', $id)->exists()) {
+            DB::table('mdetails')->where('mid', $id)->update($details);
+        } else {
+            $details['mid'] = $id;
+            DB::table('mdetails')->insert($details);
+        }
+        $location = ['lid' => $request->input('town'), 'pid' => $request->input('province'), 'cid' => $request->input('country')];
+        if (DB::table('mlocation')->where('mid', $id)->exists()) {
+            DB::table('mlocation')->where('mid', $id)->update($location);
+        } else {
+            $location['mid'] = $id;
+            DB::table('mlocation')->insert($location);
+        }
+        if (DB::table('login')->where('uid', $id)->exists()) {
+            DB::table('login')->where('uid', $id)->update(['username' => $request->input('username')]);
+        } else {
+            DB::table('login')->insert([
+                'uid' => $id,
+                'username' => $request->input('username'),
+                'datecreated' => now(),
+                'datemodified' => now(),
+            ]);
+        }
+        if ($request->filled('password')) {
+            DB::table('login')->where('uid', $id)->update([
+                'password' => Hash::make($request->input('password')),
+                'datemodified' => now(),
+            ]);
+        }
+    }
+
+    private function photoFailure(Request $request, string $message)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['message' => $message], 422);
+        }
+        return back()->with('error', $message);
+    }
+
+    private function imageFromUpload(string $path, int $type)
+    {
+        if ($type === IMAGETYPE_JPEG) {
+            return @imagecreatefromjpeg($path);
+        }
+        if ($type === IMAGETYPE_PNG) {
+            $image = @imagecreatefrompng($path);
+            if ($image) {
+                imagepalettetotruecolor($image);
+                imagealphablending($image, true);
+                imagesavealpha($image, true);
+            }
+            return $image;
+        }
+        if ($type === IMAGETYPE_WEBP) {
+            return @imagecreatefromwebp($path);
+        }
+        return false;
     }
 
     public static function getLogin($mid)

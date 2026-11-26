@@ -42,8 +42,8 @@
                                         <tr>
                                             <td>{{ $key + 1 }}</td>
                                             <td>{{ ucwords($body_type->name) }}</td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-body{{$body_type->id}}"><i class="icon" data-feather="edit" id="edit{{ $body_type->id }}"></i></a></td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-body{{$body_type->id}}"><i class="icon" data-feather="trash" id="delete{{ $body_type->id }}"></i></a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-body{{$body_type->id}}"><i class="icon" data-feather="edit" id="edit{{ $body_type->id }}"></i> Edit</a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-body{{$body_type->id}}"><i class="icon" data-feather="trash" id="delete{{ $body_type->id }}"></i> Delete</a></td>
                                         </tr>
                                         <div class="modal fade" id="edit-body{{$body_type->id}}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
                                             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -59,8 +59,8 @@
                                                         @method('PUT')
                                                         <div class="modal-body">
                                                             <div class="form-group">
-                                                                <label for="name">Name <span class="text-danger">*</span></label>
-                                                                <input type="text" name="edit_name" id="name" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $body_type->name }}">
+                                                                <label for="edit-name-body-{{ $body_type->id }}">Name <span class="text-danger">*</span></label>
+                                                                <input type="text" name="edit_name" id="edit-name-body-{{ $body_type->id }}" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $body_type->name }}">
                                                                 @error('edit_name')
                                                                     <span class="invalid-feedback" role="alert">
                                                                         <strong>{{ $message }}</strong>
@@ -106,8 +106,8 @@
                                         <tr>
                                             <td>{{ $key + 1 }}</td>
                                             <td>{{ ucwords($bust_size->name) }}</td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-bust{{$bust_size->id}}"><i class="icon" data-feather="edit" id="edit{{ $bust_size->id }}"></i></a></td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-bust{{$bust_size->id}}"><i class="icon" data-feather="trash" id="delete{{ $bust_size->id }}"></i></a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-bust{{$bust_size->id}}"><i class="icon" data-feather="edit" id="edit{{ $bust_size->id }}"></i> Edit</a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-bust{{$bust_size->id}}"><i class="icon" data-feather="trash" id="delete{{ $bust_size->id }}"></i> Delete</a></td>
                                         </tr>
                                         <div class="modal fade" id="edit-bust{{$bust_size->id}}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
                                             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -123,8 +123,8 @@
                                                         @method('PUT')
                                                         <div class="modal-body">
                                                             <div class="form-group">
-                                                                <label for="name">Name <span class="text-danger">*</span></label>
-                                                                <input type="text" name="edit_name" id="name" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $bust_size->name }}">
+                                                                <label for="edit-name-bust-{{ $bust_size->id }}">Name <span class="text-danger">*</span></label>
+                                                                <input type="text" name="edit_name" id="edit-name-bust-{{ $bust_size->id }}" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $bust_size->name }}">
                                                                 @error('edit_name')
                                                                 <span class="invalid-feedback" role="alert">
                                                                         <strong>{{ $message }}</strong>
@@ -170,8 +170,8 @@
                                         <tr>
                                             <td>{{ $key + 1 }}</td>
                                             <td>{{ ucwords($ethnic->name) }}</td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-ethnic{{$ethnic->id}}"><i class="icon" data-feather="edit" id="edit{{ $ethnic->id }}"></i></a></td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-ethnic{{$ethnic->id}}"><i class="icon" data-feather="trash" id="delete{{ $ethnic->id }}"></i></a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-ethnic{{$ethnic->id}}"><i class="icon" data-feather="edit" id="edit{{ $ethnic->id }}"></i> Edit</a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-ethnic{{$ethnic->id}}"><i class="icon" data-feather="trash" id="delete{{ $ethnic->id }}"></i> Delete</a></td>
                                         </tr>
                                         <div class="modal fade" id="edit-ethnic{{$ethnic->id}}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
                                             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -187,8 +187,8 @@
                                                         @method('PUT')
                                                         <div class="modal-body">
                                                             <div class="form-group">
-                                                                <label for="name">Name <span class="text-danger">*</span></label>
-                                                                <input type="text" name="edit_name" id="name" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $ethnic->name }}">
+                                                                <label for="edit-name-ethnic-{{ $ethnic->id }}">Name <span class="text-danger">*</span></label>
+                                                                <input type="text" name="edit_name" id="edit-name-ethnic-{{ $ethnic->id }}" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $ethnic->name }}">
                                                                 @error('edit_name')
                                                                 <span class="invalid-feedback" role="alert">
                                                                         <strong>{{ $message }}</strong>
@@ -233,8 +233,8 @@
                                         <tr>
                                             <td>{{ $key + 1 }}</td>
                                             <td>{{ ucwords($orientation->name) }}</td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-orientation{{$orientation->id}}"><i class="icon" data-feather="edit" id="edit{{ $orientation->id }}"></i></a></td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-orientation{{$orientation->id}}"><i class="icon" data-feather="trash" id="delete{{ $orientation->id }}"></i></a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-orientation{{$orientation->id}}"><i class="icon" data-feather="edit" id="edit{{ $orientation->id }}"></i> Edit</a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-orientation{{$orientation->id}}"><i class="icon" data-feather="trash" id="delete{{ $orientation->id }}"></i> Delete</a></td>
                                         </tr>
                                         <div class="modal fade" id="edit-orientation{{$orientation->id}}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
                                             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -250,8 +250,8 @@
                                                         @method('PUT')
                                                         <div class="modal-body">
                                                             <div class="form-group">
-                                                                <label for="name">Name <span class="text-danger">*</span></label>
-                                                                <input type="text" name="edit_name" id="name" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $orientation->name }}">
+                                                                <label for="edit-name-orientation-{{ $orientation->id }}">Name <span class="text-danger">*</span></label>
+                                                                <input type="text" name="edit_name" id="edit-name-orientation-{{ $orientation->id }}" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $orientation->name }}">
                                                                 @error('edit_name')
                                                                 <span class="invalid-feedback" role="alert">
                                                                         <strong>{{ $message }}</strong>
@@ -296,8 +296,8 @@
                                         <tr>
                                             <td>{{ $key + 1 }}</td>
                                             <td>{{ ucwords($town->name) }}</td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-town{{$town->id}}"><i class="icon" data-feather="edit" id="edit{{ $town->id }}"></i></a></td>
-                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-town{{$town->id}}"><i class="icon" data-feather="trash" id="delete{{ $town->id }}"></i></a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#edit-town{{$town->id}}"><i class="icon" data-feather="edit" id="edit{{ $town->id }}"></i> Edit</a></td>
+                                            <td><a href="javascript:void(0);" data-toggle="modal" data-target="#delete-town{{$town->id}}"><i class="icon" data-feather="trash" id="delete{{ $town->id }}"></i> Delete</a></td>
                                         </tr>
                                         <div class="modal fade" id="edit-town{{$town->id}}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
                                             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -313,8 +313,8 @@
                                                         @method('PUT')
                                                         <div class="modal-body">
                                                             <div class="form-group">
-                                                                <label for="edit-country">Country <span class="text-danger">*</span></label>
-                                                                <select name="edit_country" id="edit-country" class="form-control @error('edit_country') is-invalid @enderror">
+                                                                <label for="edit-country-{{ $town->id }}">Country <span class="text-danger">*</span></label>
+                                                                <select name="edit_country" id="edit-country-{{ $town->id }}" class="form-control @error('edit_country') is-invalid @enderror">
                                                                     <option value="">Select Country</option>
                                                                     @foreach($countries as $country)
                                                                         <option value="{{ $country->id }}" {{ old('edit_country') ? ($country->id == old('edit_country') ? 'selected' : '') : ($country->id == $town->cid ? 'selected' : '') }}>{{ ucwords($country->name) }}</option>
@@ -327,9 +327,14 @@
                                                                 @enderror
                                                             </div>
                                                             <div class="form-group">
-                                                                <label for="edit-province">Province <span class="text-danger">*</span></label>
-                                                                <select name="edit_province" id="edit-province" class="form-control @error('edit_province') is-invalid @enderror">
-                                                                    <option value="">Select a Country</option>
+                                                                <label for="edit-province-{{ $town->id }}">Province <span class="text-danger">*</span></label>
+                                                                <select name="edit_province" id="edit-province-{{ $town->id }}" class="form-control @error('edit_province') is-invalid @enderror">
+                                                                    <option value="">Select Province</option>
+                                                                    @foreach($provinces as $province)
+                                                                        @if((string) $province->cid === (string) (old('edit_country') ?: $town->cid))
+                                                                            <option value="{{ $province->id }}" {{ (string) $province->id === (string) (old('edit_province') ?: $town->pid) ? 'selected' : '' }}>{{ ucwords($province->name) }}</option>
+                                                                        @endif
+                                                                    @endforeach
                                                                 </select>
                                                                 @error('edit_province')
                                                                     <span class="invalid-feedback" role="alert">
@@ -338,8 +343,8 @@
                                                                 @enderror
                                                             </div>
                                                             <div class="form-group">
-                                                                <label for="name">Name <span class="text-danger">*</span></label>
-                                                                <input type="text" name="edit_name" id="name" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $town->name }}">
+                                                                <label for="edit-name-{{ $town->id }}">Name <span class="text-danger">*</span></label>
+                                                                <input type="text" name="edit_name" id="edit-name-{{ $town->id }}" class="form-control @error('edit_name') is-invalid @enderror" value="{{ old('edit_name') ?? $town->name }}">
                                                                 @error('edit_name')
                                                                     <span class="invalid-feedback" role="alert">
                                                                         <strong>{{ $message }}</strong>
@@ -517,67 +522,23 @@
         const oldcountry = '{!! old('country') ?? '' !!}';
         const oldprovince = '{!! old('province') ?? '' !!}';
 
-        const oldEditCountry = '{!! old('edit_country') ?? '' !!}';
-        const oldEditProvince = '{!! old('edit_province') ?? '' !!}';
-
-        const lcountry = '{!! $town->cid ?? ''; !!}';
-        const lprovince = '{!! $town->pid ?? ''; !!}';
-
         const countryField = $('#country');
         const provinceField = $('#province');
 
-        const editCountryField = $('#edit-country');
-        const editProvinceField = $('#edit-province');
-
-        if (lcountry) {
-            editProvinceField.html('');
-            const newprovinces = provinces.filter(cur => parseInt(cur['cid']) === parseInt(lcountry))
-            editProvinceField.append('<option value="">Select Province</option>')
-            if (newprovinces.length)
-                newprovinces.forEach(cur => editProvinceField.append(`<option value="${cur['id']}" ${oldEditProvince ? (parseInt(oldEditProvince) === parseInt(cur['id']) ? 'selected' : '') : (lprovince ? (parseInt(lprovince) === parseInt(cur['id']) ? 'selected' : '') : '')}>${cur['name']}</option>`));
-            else {
-                editProvinceField.html('');
-                editProvinceField.append('<option value="">Select Province</option>');
+        $(document).on('change', '[id^="edit-country-"]', function () {
+            const id = this.id.replace('edit-country-', '');
+            const field = $('#edit-province-' + id);
+            const cid = $(this).val();
+            field.html('');
+            if (!cid || !Array.isArray(provinces)) {
+                field.append('<option value="">Select a Country</option>');
+                return;
             }
-        }
-        else if (oldEditCountry && oldEditProvince) {
-            editProvinceField.html('');
-            const newprovinces = provinces.filter(cur => parseInt(cur['cid']) === parseInt(oldEditCountry))
-            editProvinceField.append('<option value="">Select Province</option>')
-            if (newprovinces.length)
-                newprovinces.forEach(cur => editProvinceField.append(`<option value="${cur['id']}" ${oldEditProvince ? (parseInt(oldEditProvince) === parseInt(cur['id']) ? 'selected' : '') : (lprovince ? (parseInt(lprovince) === parseInt(cur['id']) ? 'selected' : '') : '')}>${cur['name']}</option>`));
-            else {
-                editProvinceField.html('');
-                editProvinceField.append('<option value="">Select Province</option>');
-            }
-        }
-        else if (oldEditCountry && !oldEditProvince) {
-            editProvinceField.html('');
-            const newprovinces = provinces.filter(cur => parseInt(cur['cid']) === parseInt(oldEditCountry))
-            editProvinceField.append('<option value="">Select Province</option>')
-            if (newprovinces.length)
-                newprovinces.forEach(cur => editProvinceField.append(`<option value="${cur['id']}" ${oldEditProvince ? (parseInt(oldEditProvince) === parseInt(cur['id']) ? 'selected' : '') : (lprovince ? (parseInt(lprovince) === parseInt(cur['id']) ? 'selected' : '') : '')}>${cur['name']}</option>`));
-            else {
-                editProvinceField.html('');
-                editProvinceField.append('<option value="">Select Province</option>');
-            }
-        }
-
-        editCountryField.on('change', () => {
-            editProvinceField.html('');
-            const cid = editCountryField.val();
-            if (cid) {
-                const newprovinces = provinces.filter(cur => parseInt(cur['cid']) === parseInt(cid))
-                editProvinceField.append('<option value="">Select Province</option>')
-                if (newprovinces.length)
-                    newprovinces.forEach(cur => editProvinceField.append(`<option value="${cur['id']}" ${oldEditProvince ? (parseInt(oldEditProvince) === parseInt(cur['id']) ? 'selected' : '') : (lprovince ? (parseInt(lprovince) === parseInt(cur['id']) ? 'selected' : '' ) : '')}>${cur['name']}</option>`));
-                else {
-                    editProvinceField.html('');
-                    editProvinceField.append('<option value="">Select Province</option>');
-                }
-            } else
-                editProvinceField.append('<option value="">Select a Country</option>')
-        })
+            field.append('<option value="">Select Province</option>');
+            provinces.filter(cur => parseInt(cur['cid']) === parseInt(cid)).forEach(cur => {
+                field.append('<option value="' + cur['id'] + '">' + cur['name'] + '</option>');
+            });
+        });
 
         // Create Town
         if (oldcountry && oldprovince) {
