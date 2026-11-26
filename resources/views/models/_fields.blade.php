@@ -48,6 +48,7 @@
         <div class="form-group">
             <label for="username">Site username</label>
             <input type="text" class="form-control @error('username') is-invalid @enderror" name="username" id="username" maxlength="255" autocomplete="off" placeholder="Site username" value="{{ old('username', optional($model_login)->username) }}">
+            <small class="form-text text-muted">The public site accepts this username or the profile email.</small>
             @error('username')
             <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
             @enderror
