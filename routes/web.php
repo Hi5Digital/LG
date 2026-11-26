@@ -17,6 +17,7 @@ Route::get('/models/create', [HomeController::class, 'model_create'])->name('mod
 Route::post('/models', [HomeController::class, 'model_store'])->name('models.store');
 Route::get('/models/{id}', [HomeController::class, 'model_details'])->name('models.details');
 Route::put('/models/{id}', [HomeController::class, 'model_update'])->name('models.update');
+Route::post('/models/{id}/listing', [HomeController::class, 'model_listing'])->name('models.listing');
 Route::post('/models/{id}/payment', [HomeController::class, 'payment_store'])->name('models.payment.store');
 Route::post('/models/{id}/photo', [HomeController::class, 'model_photo_update'])->name('models.photo.update')->middleware('throttle:20,1');
 Route::get('/models/{id}/photo/{pid}', [HomeController::class, 'show_photo'])->name('models.photo.show');

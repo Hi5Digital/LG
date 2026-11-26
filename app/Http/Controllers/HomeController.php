@@ -137,8 +137,9 @@ class HomeController extends Controller
         $model_login = DB::table('login')->where('uid', $id)->first();
         $model_photos = DB::table('mphoto')->where('mid', $id)->orderByDesc('id')->get();
         $model_payment = DB::table('payments')->where('mid', $id)->orderByDesc('paymentdate')->orderByDesc('id')->first();
+        $payment_current = DB::table('payments')->where('mid', $id)->where('validdate', '>=', now())->exists();
         return view('model-details', array_merge(
-            compact('model', 'model_details', 'model_location', 'model_login', 'model_photos', 'model_payment'),
+            compact('model', 'model_details', 'model_location', 'model_login', 'model_photos', 'model_payment', 'payment_current'),
             $this->profileLookups()
         ));
     }
@@ -172,6 +173,33 @@ class HomeController extends Controller
             return back()->withInput()->with('error', 'Details could not be saved.');
         }
         return back()->with('success', 'Details Updated');
+    }
+
+    public function model_listing(Request $request, $id)
+    {
+        if (! DB::table('model')->where('id', $id)->exists()) {
+            abort(404);
+        }
+        $current = DB::table('payments')->where('mid', $id)->where('validdate', '>=', now())->orderByDesc('validdate')->first();
+        if ($request->input('show') === '1') {
+            $until = now()->addWeeks(4);
+            if (! $current) {
+                DB::table('payments')->insert([
+                    'mid' => $id,
+                    'paymentdate' => now(),
+                    'validdate' => $until,
+                    'transactionid' => null,
+                    'subscriptionid' => null,
+                ]);
+            } else {
+                $until = \Carbon\Carbon::parse($current->validdate);
+            }
+            return back()->with('success', 'Profile is active on the public site until '.$until->format('d M Y, H:i').'. A main photo is also required.');
+        }
+        DB::table('payments')->where('mid', $id)->where('validdate', '>=', now())->update([
+            'validdate' => now()->subSecond(),
+        ]);
+        return back()->with('success', 'Profile is hidden on the public site. The current payment now ends immediately.');
     }
 
     public function payment_store(Request $request, $id)
@@ -230,6 +258,16 @@ class HomeController extends Controller
         if (! $written) {
             return $this->photoFailure($request, 'Photo could not be stored.');
         }
+        $frontDir = $this->frontPhotoDirectory($id);
+        if ($frontDir !== null) {
+            if (! is_dir($frontDir) && ! mkdir($frontDir, 0755, true) && ! is_dir($frontDir)) {
+                $frontDir = null;
+            }
+            if ($frontDir !== null && ! @copy($dest, $frontDir.DIRECTORY_SEPARATOR.$name)) {
+                @unlink($dest);
+                return $this->photoFailure($request, 'Photo could not be stored.');
+            }
+        }
         try {
             DB::transaction(function () use ($request, $id, $name) {
                 DB::table('model')->where('id', $id)->lockForUpdate()->first();
@@ -242,6 +280,10 @@ class HomeController extends Controller
             });
         } catch (\Throwable $e) {
             @unlink($dest);
+            $frontDir = $this->frontPhotoDirectory($id);
+            if ($frontDir !== null) {
+                @unlink($frontDir.DIRECTORY_SEPARATOR.$name);
+            }
             Log::error($e);
             return $this->photoFailure($request, 'Photo could not be stored.');
         }
@@ -257,12 +299,21 @@ class HomeController extends Controller
         if (! $photo || ! $photo->photo || strpos($photo->photo, '/') !== false || strpos($photo->photo, '\\') !== false) {
             abort(404);
         }
-        $path = storage_path('app/models/'.$id.DIRECTORY_SEPARATOR.basename($photo->photo));
-        if (! is_file($path)) {
+        $path = $this->photoFile($id, $photo->photo);
+        if ($path === null) {
             abort(404);
         }
+        $type = 'application/octet-stream';
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if ($ext === 'webp') {
+            $type = 'image/webp';
+        } elseif ($ext === 'jpg' || $ext === 'jpeg') {
+            $type = 'image/jpeg';
+        } elseif ($ext === 'png') {
+            $type = 'image/png';
+        }
         return response()->file($path, [
-            'Content-Type' => 'image/webp',
+            'Content-Type' => $type,
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }
@@ -275,7 +326,12 @@ class HomeController extends Controller
         }
         DB::table('mphoto')->where('id', $pid)->where('mid', $mid)->delete();
         if ($photo->photo && strpos($photo->photo, '/') === false && strpos($photo->photo, '\\') === false) {
-            @unlink(storage_path('app/models/'.$mid.DIRECTORY_SEPARATOR.basename($photo->photo)));
+            $name = basename($photo->photo);
+            @unlink(storage_path('app/models/'.$mid.DIRECTORY_SEPARATOR.$name));
+            $frontDir = $this->frontPhotoDirectory($mid);
+            if ($frontDir !== null) {
+                @unlink($frontDir.DIRECTORY_SEPARATOR.$name);
+            }
         }
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);
@@ -595,6 +651,43 @@ class HomeController extends Controller
                 'datemodified' => now(),
             ]);
         }
+    }
+
+    private function frontPhotoDirectory($modelId): ?string
+    {
+        $parent = dirname(base_path());
+        $candidates = [
+            $parent.DIRECTORY_SEPARATOR.'LG_Front'.DIRECTORY_SEPARATOR.'img'.DIRECTORY_SEPARATOR.'models',
+            $parent.DIRECTORY_SEPARATOR.'img'.DIRECTORY_SEPARATOR.'models',
+        ];
+        foreach ($candidates as $root) {
+            $realRoot = realpath($root);
+            if ($realRoot !== false) {
+                return $realRoot.DIRECTORY_SEPARATOR.$modelId;
+            }
+        }
+        return null;
+    }
+
+    private function photoFile($modelId, $filename): ?string
+    {
+        $name = basename((string) $filename);
+        if ($name === '' || $name !== (string) $filename) {
+            return null;
+        }
+        $candidates = [
+            storage_path('app/models/'.$modelId.DIRECTORY_SEPARATOR.$name),
+        ];
+        $frontDir = $this->frontPhotoDirectory($modelId);
+        if ($frontDir !== null) {
+            $candidates[] = $frontDir.DIRECTORY_SEPARATOR.$name;
+        }
+        foreach ($candidates as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+        return null;
     }
 
     private function photoFailure(Request $request, string $message)

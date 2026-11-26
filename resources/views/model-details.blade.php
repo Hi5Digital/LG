@@ -18,6 +18,34 @@
                 <div class="card">
                     <div class="card-body">
                         <h6 class="card-title">{{ $profileTitle !== '' ? $profileTitle : 'Incomplete profile' }}</h6>
+                        @php
+                            $hasMainPhoto = $model_photos->contains(function ($photo) {
+                                return $photo->main === 'y';
+                            });
+                            $shownPublicly = $payment_current && $hasMainPhoto;
+                        @endphp
+                        <div class="alert {{ $shownPublicly ? 'alert-success' : 'alert-warning' }}">
+                            @if($shownPublicly)
+                                This profile is on the public site until {{ \Carbon\Carbon::parse($model_payment->validdate)->format('d M Y, H:i') }}.
+                            @else
+                                This profile is hidden on the public site.
+                                @if(! $payment_current)
+                                    There is no payment with a valid-until date that is still current.
+                                @endif
+                                @if(! $hasMainPhoto)
+                                    There is no main photo.
+                                @endif
+                            @endif
+                        </div>
+                        <form method="post" action="{{ route('models.listing', $model->id) }}" class="mb-3">
+                            @csrf
+                            <input type="hidden" name="show" value="0">
+                            <label class="mb-0">
+                                <input type="checkbox" name="show" value="1" {{ $payment_current ? 'checked' : '' }} onchange="this.form.submit()">
+                                Show on the public site
+                            </label>
+                            <small class="form-text text-muted">This switch writes the payments row the homepage reads. On sets the valid-until date to four weeks from now. Off ends that date immediately. The homepage still requires a main photo.</small>
+                        </form>
                         <form action="{{ route('models.update', $model->id) }}" method="post" onsubmit="this.querySelector('[type=submit]').disabled=true">
                             @csrf
                             @method('PUT')

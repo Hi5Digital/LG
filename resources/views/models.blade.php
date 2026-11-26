@@ -49,6 +49,7 @@
                                 <th>Screen Name</th>
                                 <th>Location</th>
                                 <th>Payment</th>
+                                <th>Public</th>
                                 <th>Payment Date</th>
                             </tr>
                             </thead>
@@ -57,7 +58,13 @@
                             @foreach($models as $model)
                                 @php
                                     $pay = MD::getPayment($model->id, $payments);
-                                    $active = $pay && $pay->validdate && \Carbon\Carbon::parse($pay->validdate)->gte(now());
+                                    $active = false;
+                                    foreach ($payments as $payment) {
+                                        if ((int) $payment->mid === (int) $model->id && $payment->validdate && \Carbon\Carbon::parse($payment->validdate)->gte(now())) {
+                                            $active = true;
+                                            break;
+                                        }
+                                    }
                                     $main = MD::getMainPhoto($model->id, $main_photos);
                                 @endphp
                                 <tr class="model-rows" data-url="{{ route('models.details', $model->id) }}">
@@ -68,6 +75,16 @@
                                     <td>{{ optional(MD::getDetails($model->id, $details))->screenname ?? '--------' }}</td>
                                     <td>{{ optional(MD::getLocation($model->id, $locations, $models_location))->name ?? '--------' }}</td>
                                     <td><span class="badge {{ $active ? 'badge-success' : 'badge-danger-muted' }}">{{ $active ? 'Active' : 'Inactive' }}</span></td>
+                                    <td>
+                                        <form method="post" action="{{ route('models.listing', $model->id) }}">
+                                            @csrf
+                                            <input type="hidden" name="show" value="0">
+                                            <label class="mb-0">
+                                                <input type="checkbox" name="show" value="1" {{ $active ? 'checked' : '' }} onchange="this.form.submit()" aria-label="Show on the public site">
+                                                {{ $active ? 'Shown' : 'Hidden' }}
+                                            </label>
+                                        </form>
+                                    </td>
                                     <td>{{ $pay && $pay->paymentdate ? \Carbon\Carbon::parse($pay->paymentdate)->format('d M Y') : '--------' }}</td>
                                 </tr>
                             @endforeach
@@ -85,6 +102,13 @@
                                         <option value="">All</option>
                                         <option value="Active">Active</option>
                                         <option value="Inactive">Inactive</option>
+                                    </select>
+                                </th>
+                                <th>
+                                    <select class="form-control form-control-sm">
+                                        <option value="">All</option>
+                                        <option value="Shown">Shown</option>
+                                        <option value="Hidden">Hidden</option>
                                     </select>
                                 </th>
                                 <th><input type="text" class="form-control form-control-sm" placeholder="Search Date"></th>
